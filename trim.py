@@ -1,5 +1,7 @@
+import io
+import sys
 from collections import Counter
-from PIL import Image
+from PIL import Image, ImageGrab
 
 try:
     import tomllib
@@ -91,3 +93,63 @@ def process_image(image, ratio=0.05, tolerance=20, corner_size=8):
     if bbox is None:
         return None
     return add_uniform_margin(image, bbox, ratio, background)
+
+
+def grab_clipboard_image():
+    """クリップボードの画像を返す。画像でなければ None。"""
+    data = ImageGrab.grabclipboard()
+    if isinstance(data, Image.Image):
+        return data
+    return None
+
+
+def set_clipboard_image(image):
+    """画像を CF_DIB 形式でクリップボードに書き戻す。"""
+    import win32clipboard
+
+    output = io.BytesIO()
+    image.convert("RGB").save(output, "BMP")
+    # BMP ファイルヘッダ(14 バイト)を除いた DIB 本体
+    dib = output.getvalue()[14:]
+    output.close()
+    win32clipboard.OpenClipboard()
+    try:
+        win32clipboard.EmptyClipboard()
+        win32clipboard.SetClipboardData(win32clipboard.CF_DIB, dib)
+    finally:
+        win32clipboard.CloseClipboard()
+
+
+def run_once(config):
+    """ホットキー押下時の処理本体。例外は握りつぶして常駐を維持する。"""
+    try:
+        image = grab_clipboard_image()
+        if image is None:
+            print("[skip] クリップボードに画像がありません")
+            return
+        result = process_image(
+            image,
+            ratio=config["ratio"],
+            tolerance=config["tolerance"],
+            corner_size=config["corner_size"],
+        )
+        if result is None:
+            print("[skip] 図を検出できませんでした")
+            return
+        set_clipboard_image(result)
+        print(f"[ok] 整形完了 {result.size}")
+    except Exception as e:  # noqa: BLE001  常駐を落とさない
+        print(f"[error] {e}", file=sys.stderr)
+
+
+def main():
+    import keyboard
+
+    config = load_config()
+    keyboard.add_hotkey(config["hotkey"], lambda: run_once(config))
+    print(f"常駐開始。{config['hotkey']} で整形します。Ctrl+C で終了。")
+    keyboard.wait()
+
+
+if __name__ == "__main__":
+    main()
