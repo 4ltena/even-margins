@@ -13,8 +13,10 @@ def estimate_background(image, corner_size=8):
         (0, h - cs, cs, h),
         (w - cs, h - cs, w, h),
     ]
+    px = img.load()
     pixels = []
     for left, top, right, bottom in boxes:
-        region = img.crop((left, top, right, bottom))
-        pixels.extend(region.getdata())
+        for y in range(top, bottom):
+            for x in range(left, right):
+                pixels.append(px[x, y])
     return Counter(pixels).most_common(1)[0][0]
