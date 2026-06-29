@@ -2,3 +2,4 @@ Pillow>=10
 keyboard>=0.13
 pywin32>=306
 pytest>=8
+tomli>=2; python_version < "3.11"

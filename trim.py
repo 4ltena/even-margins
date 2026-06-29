@@ -1,6 +1,31 @@
 from collections import Counter
 from PIL import Image
 
+try:
+    import tomllib
+except ModuleNotFoundError:  # Python < 3.11
+    import tomli as tomllib
+
+
+DEFAULT_CONFIG = {
+    "ratio": 0.05,
+    "hotkey": "ctrl+alt+s",
+    "tolerance": 20,
+    "corner_size": 8,
+}
+
+
+def load_config(path="config.toml"):
+    """config.toml を読み、欠落キーを既定値で補完した dict を返す。"""
+    cfg = dict(DEFAULT_CONFIG)
+    try:
+        with open(path, "rb") as f:
+            loaded = tomllib.load(f)
+    except FileNotFoundError:
+        return cfg
+    cfg.update({k: loaded[k] for k in DEFAULT_CONFIG if k in loaded})
+    return cfg
+
 
 def estimate_background(image, corner_size=8):
     """四隅の領域から最頻 RGB を背景色として返す。"""
