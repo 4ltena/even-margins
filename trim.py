@@ -20,3 +20,29 @@ def estimate_background(image, corner_size=8):
             for x in range(left, right):
                 pixels.append(px[x, y])
     return Counter(pixels).most_common(1)[0][0]
+
+
+def detect_content_bbox(image, background, tolerance=20):
+    """背景色から tolerance を超えて異なる画素の bbox を返す。無ければ None。"""
+    img = image.convert("RGB")
+    w, h = img.size
+    px = img.load()
+    br, bg, bb = background
+    left, top, right, bottom = w, h, 0, 0
+    found = False
+    for y in range(h):
+        for x in range(w):
+            r, g, b = px[x, y]
+            if abs(r - br) > tolerance or abs(g - bg) > tolerance or abs(b - bb) > tolerance:
+                found = True
+                if x < left:
+                    left = x
+                if y < top:
+                    top = y
+                if x > right:
+                    right = x
+                if y > bottom:
+                    bottom = y
+    if not found:
+        return None
+    return (left, top, right + 1, bottom + 1)
