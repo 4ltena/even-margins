@@ -1,0 +1,11 @@
+# Claude working/auxiliary docs
+CLAUDE.md
+HANDOFF.md
+.superpowers/
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
