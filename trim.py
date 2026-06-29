@@ -57,3 +57,12 @@ def add_uniform_margin(image, bbox, ratio, background):
     canvas = Image.new("RGB", (cw + 2 * margin, ch + 2 * margin), background)
     canvas.paste(cropped, (margin, margin))
     return canvas
+
+
+def process_image(image, ratio=0.05, tolerance=20, corner_size=8):
+    """クリップボード画像を整形して返す。図が無ければ None。"""
+    background = estimate_background(image, corner_size=corner_size)
+    bbox = detect_content_bbox(image, background, tolerance=tolerance)
+    if bbox is None:
+        return None
+    return add_uniform_margin(image, bbox, ratio, background)
