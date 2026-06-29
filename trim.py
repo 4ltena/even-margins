@@ -46,3 +46,14 @@ def detect_content_bbox(image, background, tolerance=20):
     if not found:
         return None
     return (left, top, right + 1, bottom + 1)
+
+
+def add_uniform_margin(image, bbox, ratio, background):
+    """bbox でクロップし、短辺×ratio の余白を全周に均等付与した画像を返す。"""
+    img = image.convert("RGB")
+    cropped = img.crop(bbox)
+    cw, ch = cropped.size
+    margin = round(min(cw, ch) * ratio)
+    canvas = Image.new("RGB", (cw + 2 * margin, ch + 2 * margin), background)
+    canvas.paste(cropped, (margin, margin))
+    return canvas
