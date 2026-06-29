@@ -25,6 +25,9 @@ def load_config(path="config.toml"):
             loaded = tomllib.load(f)
     except FileNotFoundError:
         return cfg
+    except tomllib.TOMLDecodeError as e:
+        print(f"[warn] config.toml の解析に失敗しました。既定値を使用します: {e}", file=sys.stderr)
+        return cfg
     cfg.update({k: loaded[k] for k in DEFAULT_CONFIG if k in loaded})
     return cfg
 

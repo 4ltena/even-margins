@@ -19,3 +19,15 @@ def test_partial_file_is_merged_with_defaults(tmp_path):
     assert cfg["hotkey"] == "ctrl+alt+s"
     assert cfg["tolerance"] == 20
     assert cfg["corner_size"] == 8
+
+
+def test_malformed_file_returns_defaults(tmp_path):
+    p = tmp_path / "bad.toml"
+    p.write_text("ratio = = =\n", encoding="utf-8")
+    cfg = load_config(str(p))
+    assert cfg == {
+        "ratio": 0.05,
+        "hotkey": "ctrl+alt+s",
+        "tolerance": 20,
+        "corner_size": 8,
+    }
