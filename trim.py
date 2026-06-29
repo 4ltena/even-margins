@@ -107,11 +107,10 @@ def set_clipboard_image(image):
     """画像を CF_DIB 形式でクリップボードに書き戻す。"""
     import win32clipboard
 
-    output = io.BytesIO()
-    image.convert("RGB").save(output, "BMP")
-    # BMP ファイルヘッダ(14 バイト)を除いた DIB 本体
-    dib = output.getvalue()[14:]
-    output.close()
+    with io.BytesIO() as output:
+        image.convert("RGB").save(output, "BMP")
+        # BMP ファイルヘッダ(14 バイト)を除いた DIB 本体
+        dib = output.getvalue()[14:]
     win32clipboard.OpenClipboard()
     try:
         win32clipboard.EmptyClipboard()
@@ -148,7 +147,10 @@ def main():
     config = load_config()
     keyboard.add_hotkey(config["hotkey"], lambda: run_once(config))
     print(f"常駐開始。{config['hotkey']} で整形します。Ctrl+C で終了。")
-    keyboard.wait()
+    try:
+        keyboard.wait()
+    except KeyboardInterrupt:
+        pass
 
 
 if __name__ == "__main__":
