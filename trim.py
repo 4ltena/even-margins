@@ -168,52 +168,47 @@ def format_notification(in_size, out_size):
     return f"Normalized {in_size[0]}x{in_size[1]} -> {out_size[0]}x{out_size[1]}"
 
 
-def watch_clipboard(config, poll_interval=None):
+def watch_clipboard(state, config, notifier=None):
     """Watch the clipboard and auto-normalize margins whenever a new image appears.
 
-    Because processing happens the moment an image lands on the clipboard (e.g.
-    right after a snip), no hotkey is needed. The image we write back is excluded
-    by both its signature and the clipboard sequence number so it is never
-    re-processed.
+    Loops until ``state.stop_event`` is set. The image we write back is excluded by
+    both its signature (via ``should_process``) and the clipboard sequence number so
+    it is never re-processed. On success, when ``notifier`` is given and
+    ``state.notify`` is on, ``notifier`` is called with the formatted message.
     """
-    import time
-
     import win32clipboard
 
-    interval = poll_interval if poll_interval is not None else config.get("poll_interval", 0.3)
-    last_seq = None
-    last_output_sig = None
+    interval = config.get("poll_interval", 0.3)
     print(
         f"Watching the clipboard (every {interval}s). "
-        "Snip an image and its margins are normalized automatically. Press Ctrl+C to quit."
+        "Snip an image and its margins are normalized automatically."
     )
-    try:
-        while True:
-            try:
-                seq = win32clipboard.GetClipboardSequenceNumber()
-                if seq != last_seq:
-                    last_seq = seq
-                    image = grab_clipboard_image()
-                    if is_new_content(image, last_output_sig):
-                        result = process_image(
-                            image,
-                            ratio=config["ratio"],
-                            tolerance=config["tolerance"],
-                            corner_size=config["corner_size"],
-                        )
-                        if result is None:
-                            print("[skip] No figure detected")
-                        else:
-                            set_clipboard_image(result)
-                            last_output_sig = _image_signature(result)
-                            # Our own write bumps the sequence number; refresh it to avoid re-processing.
-                            last_seq = win32clipboard.GetClipboardSequenceNumber()
-                            print(f"[ok] Normalized {result.size}")
-            except Exception as e:  # noqa: BLE001  keep the watcher alive
-                print(f"[error] {e}", file=sys.stderr)
-            time.sleep(interval)
-    except KeyboardInterrupt:
-        pass
+    while not state.stop_event.is_set():
+        try:
+            seq = win32clipboard.GetClipboardSequenceNumber()
+            if seq != state.last_seq:
+                state.last_seq = seq
+                image = grab_clipboard_image()
+                if should_process(state, image):
+                    result = process_image(
+                        image,
+                        ratio=config["ratio"],
+                        tolerance=config["tolerance"],
+                        corner_size=config["corner_size"],
+                    )
+                    if result is None:
+                        print("[skip] No figure detected")
+                    else:
+                        set_clipboard_image(result)
+                        state.last_output_sig = _image_signature(result)
+                        # Our own write bumps the sequence number; refresh it to avoid re-processing.
+                        state.last_seq = win32clipboard.GetClipboardSequenceNumber()
+                        print(f"[ok] Normalized {result.size}")
+                        if notifier is not None and state.notify:
+                            notifier(format_notification(image.size, result.size))
+        except Exception as e:  # noqa: BLE001  keep the watcher alive
+            print(f"[error] {e}", file=sys.stderr)
+        state.stop_event.wait(interval)
 
 
 def main():
