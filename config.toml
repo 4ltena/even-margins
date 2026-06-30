@@ -1,7 +1,7 @@
 # 余白 = 図の短辺 × ratio
 ratio = 0.05
-# グローバルホットキー（alt+shift+s は Windows スニップと衝突するため回避）
-hotkey = "ctrl+alt+s"
+# クリップボード監視のポーリング間隔（秒）
+poll_interval = 0.3
 # 背景色判定の許容誤差（RGB 各チャンネルの差の上限, 0-255）
 tolerance = 20
 # 四隅サンプル領域の一辺 px

@@ -11,7 +11,7 @@ except ModuleNotFoundError:  # Python < 3.11
 
 DEFAULT_CONFIG = {
     "ratio": 0.05,
-    "hotkey": "ctrl+alt+s",
+    "poll_interval": 0.3,
     "tolerance": 20,
     "corner_size": 8,
 }
@@ -122,38 +122,71 @@ def set_clipboard_image(image):
         win32clipboard.CloseClipboard()
 
 
-def run_once(config):
-    """ホットキー押下時の処理本体。例外は握りつぶして常駐を維持する。"""
+def _image_signature(image):
+    """画像の同一性判定用シグネチャ（RGB バイト列）。"""
+    return image.convert("RGB").tobytes()
+
+
+def is_new_content(image, last_output_signature):
+    """処理対象とすべき新しい画像なら True。
+
+    画像でない（None）か、直前に自分が書き戻した画像と同一なら False。
+    自分の出力を再処理して縮み続けるループを防ぐためのガード。
+    """
+    if image is None:
+        return False
+    return _image_signature(image) != last_output_signature
+
+
+def watch_clipboard(config, poll_interval=None):
+    """クリップボードを監視し、新しい画像が入るたびに自動で整形して書き戻す。
+
+    スニップ等でクリップボードに画像が入った瞬間に処理するため、ホットキーは不要。
+    自分が書き戻した画像はシグネチャとシーケンス番号の両方で除外し、再処理しない。
+    """
+    import time
+
+    import win32clipboard
+
+    interval = poll_interval if poll_interval is not None else config.get("poll_interval", 0.3)
+    last_seq = None
+    last_output_sig = None
+    print(
+        f"クリップボード監視を開始しました（{interval}s 間隔）。"
+        "スニップすると自動で余白を均等化します。Ctrl+C で終了。"
+    )
     try:
-        image = grab_clipboard_image()
-        if image is None:
-            print("[skip] クリップボードに画像がありません")
-            return
-        result = process_image(
-            image,
-            ratio=config["ratio"],
-            tolerance=config["tolerance"],
-            corner_size=config["corner_size"],
-        )
-        if result is None:
-            print("[skip] 図を検出できませんでした")
-            return
-        set_clipboard_image(result)
-        print(f"[ok] 整形完了 {result.size}")
-    except Exception as e:  # noqa: BLE001  常駐を落とさない
-        print(f"[error] {e}", file=sys.stderr)
+        while True:
+            try:
+                seq = win32clipboard.GetClipboardSequenceNumber()
+                if seq != last_seq:
+                    last_seq = seq
+                    image = grab_clipboard_image()
+                    if is_new_content(image, last_output_sig):
+                        result = process_image(
+                            image,
+                            ratio=config["ratio"],
+                            tolerance=config["tolerance"],
+                            corner_size=config["corner_size"],
+                        )
+                        if result is None:
+                            print("[skip] 図を検出できませんでした")
+                        else:
+                            set_clipboard_image(result)
+                            last_output_sig = _image_signature(result)
+                            # 自分の書き戻しでシーケンス番号が進むため、最新値に更新して再処理を防ぐ
+                            last_seq = win32clipboard.GetClipboardSequenceNumber()
+                            print(f"[ok] 整形しました {result.size}")
+            except Exception as e:  # noqa: BLE001  監視を落とさない
+                print(f"[error] {e}", file=sys.stderr)
+            time.sleep(interval)
+    except KeyboardInterrupt:
+        pass
 
 
 def main():
-    import keyboard
-
     config = load_config()
-    keyboard.add_hotkey(config["hotkey"], lambda: run_once(config))
-    print(f"常駐開始。{config['hotkey']} で整形します。Ctrl+C で終了。")
-    try:
-        keyboard.wait()
-    except KeyboardInterrupt:
-        pass
+    watch_clipboard(config)
 
 
 if __name__ == "__main__":
