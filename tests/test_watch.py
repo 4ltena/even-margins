@@ -21,7 +21,7 @@ def test_is_new_content_false_for_none():
 def test_is_new_content_skips_own_output():
     out = _img((123, 45, 67))
     sig = _image_signature(out)
-    # 直前に自分が書き戻した画像と同一 → 再処理しない
+    # Identical to the image we just wrote back -> do not re-process
     assert is_new_content(out, sig) is False
 
 

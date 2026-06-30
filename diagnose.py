@@ -1,12 +1,12 @@
-"""診断用スクリプト（ホットキー・常駐に依存しない）。
+"""Diagnostic script (independent of the hotkey/watcher).
 
-使い方:
-  1. 余白が不均一な図を Snipping 等でクリップボードにコピーする。
-  2. このスクリプトを実行する:  python diagnose.py
-  3. 出力をそのまま貼って報告してください。
+Usage:
+  1. Copy a figure with uneven margins to the clipboard (e.g. via Snipping).
+  2. Run this script:  python diagnose.py
+  3. Paste the whole output back when reporting an issue.
 
-各境界（クリップボード取得 → 背景推定 → コンテンツ検出 → 整形 → 書き戻し）で
-何が起きているかを表示します。
+It prints what happens at each boundary: clipboard grab -> background estimate
+-> content detection -> normalization -> write-back.
 """
 
 import sys
@@ -24,31 +24,31 @@ def main():
     cfg = load_config()
     print(f"[config] {cfg}")
 
-    # --- 1. クリップボード取得 ---
+    # --- 1. Grab from clipboard ---
     image = trim.grab_clipboard_image()
     if image is None:
-        # grabclipboard が何を返したか直接確認
+        # Inspect what grabclipboard actually returned.
         try:
             from PIL import ImageGrab
 
             raw = ImageGrab.grabclipboard()
-            print(f"[grab] grab_clipboard_image()=None  / ImageGrab.grabclipboard() の型: {type(raw)!r}")
+            print(f"[grab] grab_clipboard_image()=None  / ImageGrab.grabclipboard() type: {type(raw)!r}")
             if isinstance(raw, list):
-                print(f"[grab] クリップボードはファイルパスのリストでした: {raw}")
+                print(f"[grab] Clipboard held a list of file paths: {raw}")
         except Exception as e:
-            print(f"[grab] ImageGrab で例外: {e!r}")
-        print("=> 画像として取得できていません。ここが原因です。")
+            print(f"[grab] ImageGrab raised: {e!r}")
+        print("=> Could not obtain an image. This is the cause.")
         return
 
     print(f"[grab] OK  mode={image.mode}  size={image.size}")
 
     rgb = image.convert("RGB")
 
-    # --- 2. 背景色推定 ---
+    # --- 2. Estimate background ---
     bg = estimate_background(rgb, corner_size=cfg["corner_size"])
-    print(f"[background] 推定背景色={bg}")
+    print(f"[background] estimated background={bg}")
 
-    # 四隅の実際の色も表示
+    # Show the actual corner colors too.
     w, h = rgb.size
     px = rgb.load()
     corners = {
@@ -57,41 +57,41 @@ def main():
         "BL": px[0, h - 1],
         "BR": px[w - 1, h - 1],
     }
-    print(f"[background] 四隅の実色={corners}")
+    print(f"[background] corner colors={corners}")
 
-    # --- 3. コンテンツ検出 ---
+    # --- 3. Detect content ---
     bbox = detect_content_bbox(rgb, bg, tolerance=cfg["tolerance"])
     if bbox is None:
-        print(f"[detect] bbox=None  (tolerance={cfg['tolerance']} の範囲内＝全面が背景とみなされた)")
-        print("=> 図を検出できていません。tolerance か背景推定が原因の可能性。")
+        print(f"[detect] bbox=None  (everything within tolerance={cfg['tolerance']} of the background)")
+        print("=> No figure detected. Likely the tolerance or background estimate.")
         return
     left, top, right, bottom = bbox
-    print(f"[detect] bbox={bbox}  検出図サイズ={right - left}x{bottom - top}  画像全体={w}x{h}")
-    print(f"[detect] 元の余白  左={left} 右={w - right} 上={top} 下={h - bottom}")
+    print(f"[detect] bbox={bbox}  figure size={right - left}x{bottom - top}  full image={w}x{h}")
+    print(f"[detect] original margins  left={left} right={w - right} top={top} bottom={h - bottom}")
 
-    # --- 4. 整形 ---
+    # --- 4. Normalize ---
     out = add_uniform_margin(rgb, bbox, cfg["ratio"], bg)
-    print(f"[trim] 出力サイズ={out.size}  (入力={image.size})")
+    print(f"[trim] output size={out.size}  (input={image.size})")
     if out.size == image.size:
-        print("[trim] 注意: 出力サイズが入力と同一です（既に均等？／検出範囲が全面？）")
+        print("[trim] note: output size equals input (already balanced, or content fills the frame?)")
 
-    # --- 5. 書き戻し ---
+    # --- 5. Write back ---
     try:
         trim.set_clipboard_image(out)
-        print("[set] クリップボードに書き戻しました。今すぐ貼り付けて確認してください。")
+        print("[set] Wrote back to the clipboard. Paste now to check.")
     except Exception as e:
-        print(f"[set] 書き戻しで例外: {e!r}")
-        print("=> 書き戻し（CF_DIB）が原因です。")
+        print(f"[set] write-back raised: {e!r}")
+        print("=> The write-back (CF_DIB) is the cause.")
         return
 
-    # 検証: 書き戻した画像を取得し直してサイズ一致を確認
+    # Verify: read the clipboard again and confirm the size matches.
     back = trim.grab_clipboard_image()
     if back is None:
-        print("[verify] 書き戻し後に取得し直せませんでした。")
+        print("[verify] Could not re-grab after write-back.")
     else:
-        print(f"[verify] 書き戻し後のクリップボード画像サイズ={back.size}（期待={out.size}）")
+        print(f"[verify] clipboard image size after write-back={back.size} (expected={out.size})")
         if back.size == out.size:
-            print("=> 書き戻し成功。logic 側は正常です。")
+            print("=> Write-back succeeded. The core logic is working.")
 
 
 if __name__ == "__main__":
