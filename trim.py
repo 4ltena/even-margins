@@ -1,5 +1,6 @@
 import io
 import sys
+import threading
 from collections import Counter
 from PIL import Image, ImageGrab
 
@@ -14,6 +15,7 @@ DEFAULT_CONFIG = {
     "poll_interval": 0.3,
     "tolerance": 20,
     "corner_size": 8,
+    "notify": True,
 }
 
 
@@ -137,6 +139,33 @@ def is_new_content(image, last_output_signature):
     if image is None:
         return False
     return _image_signature(image) != last_output_signature
+
+
+class AppState:
+    """Shared runtime state between the tray menu and the clipboard watcher."""
+
+    def __init__(self, enabled=True, notify=True):
+        self.enabled = enabled
+        self.notify = notify
+        self.stop_event = threading.Event()
+        self.last_output_sig = None
+        self.last_seq = None
+
+    def toggle_enabled(self):
+        self.enabled = not self.enabled
+
+    def toggle_notify(self):
+        self.notify = not self.notify
+
+
+def should_process(state, image):
+    """True when processing is enabled and the image is new (not our own output)."""
+    return state.enabled and is_new_content(image, state.last_output_sig)
+
+
+def format_notification(in_size, out_size):
+    """Build the toast body, e.g. 'Normalized 1280x720 -> 1344x756'."""
+    return f"Normalized {in_size[0]}x{in_size[1]} -> {out_size[0]}x{out_size[1]}"
 
 
 def watch_clipboard(config, poll_interval=None):

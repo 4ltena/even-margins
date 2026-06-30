@@ -8,6 +8,7 @@ def test_missing_file_returns_defaults():
         "poll_interval": 0.3,
         "tolerance": 20,
         "corner_size": 8,
+        "notify": True,
     }
 
 
@@ -19,6 +20,7 @@ def test_partial_file_is_merged_with_defaults(tmp_path):
     assert cfg["poll_interval"] == 0.3
     assert cfg["tolerance"] == 20
     assert cfg["corner_size"] == 8
+    assert cfg["notify"] is True
 
 
 def test_malformed_file_returns_defaults(tmp_path):
@@ -30,4 +32,5 @@ def test_malformed_file_returns_defaults(tmp_path):
         "poll_interval": 0.3,
         "tolerance": 20,
         "corner_size": 8,
+        "notify": True,
     }
