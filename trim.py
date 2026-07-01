@@ -213,7 +213,9 @@ def watch_clipboard(state, config, notifier=None):
 
 def main():
     config = load_config()
-    watch_clipboard(config)
+    import tray
+
+    tray.run(config)
 
 
 if __name__ == "__main__":

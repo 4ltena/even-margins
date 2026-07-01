@@ -36,7 +36,7 @@ pip install -r requirements.txt
 python trim.py
 ```
 
-It runs in the background and watches the clipboard. When a new image arrives (e.g. from a snip), it normalizes the margins automatically and writes the result back. Press `Ctrl+C` to quit.
+It lives in the system tray and watches the clipboard. When a new image arrives (e.g. from a snip), it normalizes the margins automatically, writes the result back, and shows a toast on each success. The tray menu toggles watching (**Enabled**) and notifications (**Notifications**), and **Quit** exits.
 
 The image it writes back is excluded by both its signature and the clipboard sequence number, so the figure never keeps shrinking from re-processing.
 
@@ -50,6 +50,7 @@ Edit `config.toml`.
 | `poll_interval` | `0.3` | Clipboard polling interval (seconds) |
 | `tolerance` | `20` | Background match tolerance (max per-channel RGB diff) |
 | `corner_size` | `8` | Side length (px) of the corner sampling boxes |
+| `notify` | `true` | Show a toast notification on each successful normalization |
 
 ## Troubleshooting
 
