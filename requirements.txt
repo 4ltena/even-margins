@@ -1,4 +1,6 @@
 Pillow>=10
 pywin32>=306
+pystray>=0.19
+windows-toasts>=1.1
 pytest>=8
 tomli>=2; python_version < "3.11"

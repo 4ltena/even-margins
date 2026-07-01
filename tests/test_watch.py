@@ -34,3 +34,15 @@ def test_is_new_content_accepts_fresh_image():
 
 def test_is_new_content_true_when_no_previous_output():
     assert is_new_content(_img((9, 9, 9)), None) is True
+
+
+from trim import AppState, watch_clipboard
+
+
+def test_watch_clipboard_returns_when_already_stopped():
+    state = AppState()
+    state.stop_event.set()  # pre-stopped: loop body must be skipped, returns immediately
+    calls = []
+    cfg = {"poll_interval": 0.01, "ratio": 0.05, "tolerance": 20, "corner_size": 8}
+    watch_clipboard(state, cfg, notifier=lambda text: calls.append(text))
+    assert calls == []  # nothing processed, so no notification

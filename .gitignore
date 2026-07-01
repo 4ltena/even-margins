@@ -1,8 +1,12 @@
 # Claude working/auxiliary docs
 CLAUDE.md
 HANDOFF.md
+OVERVIEW.md
 .superpowers/
 docs/superpowers/
+
+# Runtime log
+even-margins.log*
 
 # Python
 __pycache__/

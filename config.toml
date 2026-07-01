@@ -6,3 +6,5 @@ poll_interval = 0.3
 tolerance = 20
 # Side length, in px, of the corner sampling boxes
 corner_size = 8
+# Show a toast notification on each successful normalization
+notify = true
