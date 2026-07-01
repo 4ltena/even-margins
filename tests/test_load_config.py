@@ -1,4 +1,21 @@
+import os
+
+import trim
 from trim import load_config
+
+
+def test_default_config_path_is_next_to_module():
+    expected = os.path.join(os.path.dirname(os.path.abspath(trim.__file__)), "config.toml")
+    assert trim.default_config_path() == expected
+
+
+def test_load_config_default_ignores_cwd(monkeypatch, tmp_path):
+    # A config.toml sitting in the current working directory must be ignored;
+    # the default path is resolved next to trim.py, not from the CWD.
+    (tmp_path / "config.toml").write_text("ratio = 0.99\n", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    cfg = load_config()
+    assert cfg["ratio"] != 0.99
 
 
 def test_missing_file_returns_defaults():

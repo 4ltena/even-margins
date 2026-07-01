@@ -1,7 +1,10 @@
 import io
+import logging
+import os
 import sys
 import threading
 from collections import Counter
+from logging.handlers import RotatingFileHandler
 from PIL import Image, ImageGrab
 
 try:
@@ -18,9 +21,56 @@ DEFAULT_CONFIG = {
     "notify": True,
 }
 
+logger = logging.getLogger("even-margins")
 
-def load_config(path="config.toml"):
-    """Read config.toml and return a dict with missing keys filled from defaults."""
+
+def _module_dir():
+    """Directory containing this module, used to resolve config and log paths."""
+    return os.path.dirname(os.path.abspath(__file__))
+
+
+def default_config_path():
+    """Path to config.toml next to this module (independent of the working directory)."""
+    return os.path.join(_module_dir(), "config.toml")
+
+
+def default_log_path():
+    """Path to the log file next to this module (independent of the working directory)."""
+    return os.path.join(_module_dir(), "even-margins.log")
+
+
+def setup_logging(path=None, name="even-margins"):
+    """Attach a rotating file handler (and a console handler when a console exists).
+
+    Idempotent: a logger that already has handlers is returned unchanged, so calling
+    this more than once never stacks duplicate handlers. Under ``pythonw`` there is no
+    console (``sys.stdout is None``), so only the file handler is added.
+    """
+    lg = logging.getLogger(name)
+    if lg.handlers:
+        return lg
+    if path is None:
+        path = default_log_path()
+    lg.setLevel(logging.INFO)
+    fmt = logging.Formatter("%(asctime)s %(levelname)s %(message)s")
+    file_handler = RotatingFileHandler(path, maxBytes=1_000_000, backupCount=3, encoding="utf-8")
+    file_handler.setFormatter(fmt)
+    lg.addHandler(file_handler)
+    if sys.stdout is not None:
+        console = logging.StreamHandler(sys.stdout)
+        console.setFormatter(fmt)
+        lg.addHandler(console)
+    return lg
+
+
+def load_config(path=None):
+    """Read config.toml and return a dict with missing keys filled from defaults.
+
+    When ``path`` is None, the file is resolved next to this module (not the current
+    working directory), so a resident launch does not depend on where it was started.
+    """
+    if path is None:
+        path = default_config_path()
     cfg = dict(DEFAULT_CONFIG)
     try:
         with open(path, "rb") as f:
@@ -28,7 +78,7 @@ def load_config(path="config.toml"):
     except FileNotFoundError:
         return cfg
     except tomllib.TOMLDecodeError as e:
-        print(f"[warn] Failed to parse config.toml; using defaults: {e}", file=sys.stderr)
+        logger.warning("Failed to parse config.toml; using defaults: %s", e)
         return cfg
     cfg.update({k: loaded[k] for k in DEFAULT_CONFIG if k in loaded})
     return cfg
@@ -179,9 +229,10 @@ def watch_clipboard(state, config, notifier=None):
     import win32clipboard
 
     interval = config.get("poll_interval", 0.3)
-    print(
-        f"Watching the clipboard (every {interval}s). "
-        "Snip an image and its margins are normalized automatically."
+    logger.info(
+        "Watching the clipboard (every %ss). "
+        "Snip an image and its margins are normalized automatically.",
+        interval,
     )
     while not state.stop_event.is_set():
         try:
@@ -197,21 +248,22 @@ def watch_clipboard(state, config, notifier=None):
                         corner_size=config["corner_size"],
                     )
                     if result is None:
-                        print("[skip] No figure detected")
+                        logger.info("No figure detected")
                     else:
                         set_clipboard_image(result)
                         state.last_output_sig = _image_signature(result)
                         # Our own write bumps the sequence number; refresh it to avoid re-processing.
                         state.last_seq = win32clipboard.GetClipboardSequenceNumber()
-                        print(f"[ok] Normalized {result.size}")
+                        logger.info("Normalized %s", result.size)
                         if notifier is not None and state.notify:
                             notifier(format_notification(image.size, result.size))
         except Exception as e:  # noqa: BLE001  keep the watcher alive
-            print(f"[error] {e}", file=sys.stderr)
+            logger.error("%s", e)
         state.stop_event.wait(interval)
 
 
 def main():
+    setup_logging()
     config = load_config()
     import tray
 
